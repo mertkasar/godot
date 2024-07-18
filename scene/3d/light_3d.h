@@ -191,6 +191,8 @@ public:
 	void set_sky_mode(SkyMode p_mode);
 	SkyMode get_sky_mode() const;
 
+	PackedStringArray get_configuration_warnings() const override;
+
 	DirectionalLight3D();
 };
 

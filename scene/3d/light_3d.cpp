@@ -532,7 +532,7 @@ void DirectionalLight3D::_validate_property(PropertyInfo &p_property) const {
 		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 
-	if (p_property.name == "light_size" || p_property.name == "light_projector" || p_property.name == "light_specular") {
+	if (p_property.name == "light_size" || p_property.name == "light_specular") {
 		// Not implemented in DirectionalLight3D (`light_size` is replaced by `light_angular_distance`).
 		p_property.usage = PROPERTY_USAGE_NONE;
 	}
@@ -542,6 +542,20 @@ void DirectionalLight3D::_validate_property(PropertyInfo &p_property) const {
 		// For DirectionalLight3D, `directional_shadow_max_distance` can be used instead.
 		p_property.usage = PROPERTY_USAGE_NONE;
 	}
+}
+
+PackedStringArray DirectionalLight3D::get_configuration_warnings() const {
+	PackedStringArray warnings = Light3D::get_configuration_warnings();
+
+	if (!has_shadow() && get_projector().is_valid()) {
+		warnings.push_back(RTR("Projector texture only works with shadows active."));
+	}
+
+	if (get_projector().is_valid() && OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
+		warnings.push_back(RTR("Projector textures are not supported when using the GL Compatibility backend yet. Support will be added in a future release."));
+	}
+
+	return warnings;
 }
 
 void DirectionalLight3D::_bind_methods() {
