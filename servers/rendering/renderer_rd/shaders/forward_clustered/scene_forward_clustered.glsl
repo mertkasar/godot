@@ -2257,6 +2257,37 @@ void fragment_shader(in SceneData scene_data) {
 						}
 					}
 
+					// TODO: 
+					// 	PROJECTOR ON DIRECTIONAL + PROJECTOR ON OTHERS passes sc_use_light_projector()
+					// 	PROJECTOR ON DIRECTIONAL + NO PROJECTOR ON OTHERS fails sc_use_light_projector()
+					// 	Find out why..
+					if (/*sc_use_light_projector() && */directional_lights.data[i].projector_rect != vec4(0.0)) {
+						vec4 splane = (directional_lights.data[i].shadow_matrix4 * vec4(vertex, 1.0));
+						splane /= splane.w;
+
+						vec4 proj_rec = directional_lights.data[i].projector_rect;
+						proj_rec.zw *= 1.0;
+
+						vec2 proj_uv = splane.xy * proj_rec.zw;
+
+						if (sc_projector_use_mipmaps()) {
+							//ensure we have proper mipmaps
+							vec4 splane_ddx = (directional_lights.data[i].shadow_matrix4 * vec4(vertex + vertex_ddx, 1.0));
+							splane_ddx /= splane_ddx.w;
+							vec2 proj_uv_ddx = splane_ddx.xy * proj_rec.zw - proj_uv;
+
+							vec4 splane_ddy = (directional_lights.data[i].shadow_matrix4 * vec4(vertex + vertex_ddy, 1.0));
+							splane_ddy /= splane_ddy.w;
+							vec2 proj_uv_ddy = splane_ddy.xy * proj_rec.zw - proj_uv;
+
+							vec4 proj = textureGrad(sampler2D(decal_atlas_srgb, light_projector_sampler), proj_uv + proj_rec.xy, proj_uv_ddx, proj_uv_ddy);
+							shadow *= proj.r * proj.a;
+						} else {
+							vec4 proj = textureLod(sampler2D(decal_atlas_srgb, light_projector_sampler), proj_uv + proj_rec.xy, 0.0);
+							shadow *= proj.r * proj.a;
+						}
+					}
+
 #ifdef USE_LIGHTMAP
 					if (shadowmask_mode == LIGHTMAP_SHADOWMASK_MODE_REPLACE) {
 						shadow = mix(shadow, shadowmask, smoothstep(directional_lights.data[i].fade_from, directional_lights.data[i].fade_to, vertex.z)); //done with negative values for performance

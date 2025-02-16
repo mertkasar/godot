@@ -211,6 +211,7 @@ private:
 		float uv_scale2[2];
 		float uv_scale3[2];
 		float uv_scale4[2];
+		float projector_rect[4];
 	};
 
 	uint32_t max_directional_lights;

@@ -240,18 +240,16 @@ void LightStorage::light_set_projector(RID p_light, RID p_texture) {
 
 	ERR_FAIL_COND(p_texture.is_valid() && !texture_storage->owns_texture(p_texture));
 
-	if (light->type != RS::LIGHT_DIRECTIONAL && light->projector.is_valid()) {
+	if (light->projector.is_valid()) {
 		texture_storage->texture_remove_from_decal_atlas(light->projector, light->type == RS::LIGHT_OMNI);
 	}
 
 	light->projector = p_texture;
 
-	if (light->type != RS::LIGHT_DIRECTIONAL) {
-		if (light->projector.is_valid()) {
-			texture_storage->texture_add_to_decal_atlas(light->projector, light->type == RS::LIGHT_OMNI);
-		}
-		light->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_LIGHT_SOFT_SHADOW_AND_PROJECTOR);
+	if (light->projector.is_valid()) {
+		texture_storage->texture_add_to_decal_atlas(light->projector, light->type == RS::LIGHT_OMNI);
 	}
+	light->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_LIGHT_SOFT_SHADOW_AND_PROJECTOR);
 }
 
 void LightStorage::light_set_negative(RID p_light, bool p_enable) {
@@ -683,6 +681,22 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				}
 
 				light_data.bake_mode = light->bake_mode;
+
+				RID projector = light->projector;
+
+				if (projector.is_valid()) {
+					Rect2 rect = texture_storage->decal_atlas_get_texture_rect(projector);
+					
+					light_data.projector_rect[0] = rect.position.x;
+					light_data.projector_rect[1] = rect.position.y + rect.size.height; //flip because shadow is flipped
+					light_data.projector_rect[2] = rect.size.width;
+					light_data.projector_rect[3] = -rect.size.height;
+				} else {
+					light_data.projector_rect[0] = 0;
+					light_data.projector_rect[1] = 0;
+					light_data.projector_rect[2] = 0;
+					light_data.projector_rect[3] = 0;
+				}
 
 				if (light_data.shadow_opacity > 0.001) {
 					RS::LightDirectionalShadowMode smode = light->directional_shadow_mode;
