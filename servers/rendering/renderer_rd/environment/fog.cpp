@@ -31,6 +31,7 @@
 #include "fog.h"
 
 #include "servers/rendering/renderer_rd/cluster_builder_rd.h"
+#include "servers/rendering/renderer_rd/renderer_compositor_rd.h"
 #include "servers/rendering/renderer_rd/renderer_scene_render_rd.h"
 #include "servers/rendering/renderer_rd/storage_rd/material_storage.h"
 #include "servers/rendering/renderer_rd/storage_rd/texture_storage.h"
@@ -565,7 +566,7 @@ Vector3i Fog::_point_get_position_in_froxel_volume(const Vector3 &p_point, float
 	return Vector3i(fog_position);
 }
 
-void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const Projection &p_cam_projection, const Transform3D &p_cam_transform, const Transform3D &p_prev_cam_inv_transform, RID p_shadow_atlas, int p_directional_light_count, bool p_use_directional_shadows, int p_positional_light_count, int p_voxel_gi_count, const PagedArray<RID> &p_fog_volumes) {
+void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const Projection &p_cam_projection, const Transform3D &p_cam_transform, const Transform3D &p_prev_cam_inv_transform, RID p_shadow_atlas, int p_directional_light_count, bool p_use_directional_shadows, int p_positional_light_count, int p_voxel_gi_count, const PagedArray<RID> &p_fog_volumes, const RendererRD::MaterialStorage::Samplers &p_samplers) {
 	RendererRD::TextureStorage *texture_storage = RendererRD::TextureStorage::get_singleton();
 	RendererRD::MaterialStorage *material_storage = RendererRD::MaterialStorage::get_singleton();
 
@@ -984,6 +985,47 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 			uniforms.push_back(u);
 		}
 
+		{
+			RD::Uniform u;
+			u.binding = 20;
+			u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
+			RID decal_atlas = RendererRD::TextureStorage::get_singleton()->decal_atlas_get_texture_srgb();
+			u.append_id(decal_atlas);
+			uniforms.push_back(u);
+			copy_uniforms.push_back(u);
+		}
+
+		{
+			RD::Uniform u;
+			u.binding = 21;
+			u.uniform_type = RD::UNIFORM_TYPE_SAMPLER;
+			RID sampler;
+			switch (RendererSceneRenderRD::get_singleton()->light_projectors_get_filter()) {
+				case RSE::LIGHT_PROJECTOR_FILTER_NEAREST: {
+					sampler = p_samplers.get_sampler(RSE::CANVAS_ITEM_TEXTURE_FILTER_NEAREST, RSE::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+				} break;
+				case RSE::LIGHT_PROJECTOR_FILTER_LINEAR: {
+					sampler = p_samplers.get_sampler(RSE::CANVAS_ITEM_TEXTURE_FILTER_LINEAR, RSE::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+				} break;
+				case RSE::LIGHT_PROJECTOR_FILTER_NEAREST_MIPMAPS: {
+					sampler = p_samplers.get_sampler(RSE::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS, RSE::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+				} break;
+				case RSE::LIGHT_PROJECTOR_FILTER_LINEAR_MIPMAPS: {
+					sampler = p_samplers.get_sampler(RSE::CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS, RSE::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+				} break;
+				case RSE::LIGHT_PROJECTOR_FILTER_NEAREST_MIPMAPS_ANISOTROPIC: {
+					sampler = p_samplers.get_sampler(RSE::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC, RSE::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+				} break;
+				case RSE::LIGHT_PROJECTOR_FILTER_LINEAR_MIPMAPS_ANISOTROPIC: {
+					sampler = p_samplers.get_sampler(RSE::CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC, RSE::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+				} break;
+			}
+
+			u.append_id(sampler);
+			uniforms.push_back(u);
+			copy_uniforms.push_back(u);
+		}
+
 		if (fog->copy_uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(fog->copy_uniform_set)) {
 			RD::get_singleton()->free_rid(fog->copy_uniform_set);
 		}
@@ -1125,6 +1167,8 @@ void Fog::volumetric_fog_update(const VolumetricFogSettings &p_settings, const P
 		params.sky_border_size[0] = uv_border_size;
 		params.sky_border_size[1] = 1.0f - uv_border_size * 2.0f;
 	}
+
+	params.inv_fog_fade = 1.0 / RendererSceneRenderRD::get_singleton()->environment_get_volumetric_fog_fade(p_settings.env);
 
 	{
 		uint32_t cluster_size = p_settings.cluster_builder->get_cluster_size();
