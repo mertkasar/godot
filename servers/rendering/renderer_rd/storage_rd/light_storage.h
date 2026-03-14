@@ -215,12 +215,14 @@ private:
 		float projector_matrix[16];
 		float projector_rect[4];
 		float projector_offset[2];
-		float padding[2];
+		uint32_t has_projector;
+		float padding;
 	};
 
 	uint32_t max_directional_lights;
 	DirectionalLightData *directional_lights = nullptr;
 	RID directional_light_buffer;
+	RID directional_projector_texture_rd;
 
 	/* REFLECTION PROBE */
 
@@ -814,6 +816,7 @@ public:
 	RID get_omni_light_buffer() { return omni_light_buffer; }
 	RID get_spot_light_buffer() { return spot_light_buffer; }
 	RID get_directional_light_buffer() { return directional_light_buffer; }
+	RID get_directional_projector_texture() const { return directional_projector_texture_rd; }
 	uint32_t get_max_directional_lights() { return max_directional_lights; }
 	uint32_t get_directional_light_blend_splits(uint32_t p_directional_light_count) const {
 		uint32_t blend_splits = 0;

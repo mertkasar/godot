@@ -286,6 +286,8 @@ layout(set = 0, binding = 15) uniform texture2D best_fit_normal_texture;
 
 layout(set = 0, binding = 16) uniform texture2D dfg;
 
+layout(set = 0, binding = 17) uniform texture2D directional_projector_texture;
+
 /* Set 1: Render Pass (changes per render pass) */
 
 layout(set = 1, binding = 0, std140) uniform SceneDataBlock {

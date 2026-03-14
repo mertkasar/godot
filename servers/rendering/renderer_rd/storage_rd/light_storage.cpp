@@ -240,13 +240,13 @@ void LightStorage::light_set_projector(RID p_light, RID p_texture) {
 
 	ERR_FAIL_COND(p_texture.is_valid() && !texture_storage->owns_texture(p_texture));
 
-	if (light->projector.is_valid()) {
+	if (light->projector.is_valid() && light->type != RS::LIGHT_DIRECTIONAL) {
 		texture_storage->texture_remove_from_decal_atlas(light->projector, light->type == RS::LIGHT_OMNI);
 	}
 
 	light->projector = p_texture;
 
-	if (light->projector.is_valid()) {
+	if (light->projector.is_valid() && light->type != RS::LIGHT_DIRECTIONAL) {
 		texture_storage->texture_add_to_decal_atlas(light->projector, light->type == RS::LIGHT_OMNI);
 	}
 	light->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_LIGHT_SOFT_SHADOW_AND_PROJECTOR);
@@ -623,6 +623,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 
 	r_directional_light_soft_shadows = false;
 	r_directional_light_use_projectors = false;
+	directional_projector_texture_rd = RID();
 
 	for (int i = 0; i < (int)p_lights.size(); i++) {
 		LightInstance *light_instance = light_instance_owner.get_or_null(p_lights[i]);
@@ -710,17 +711,18 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 					RID projector = light->projector;
 
 					if (projector.is_valid()) {
-						Rect2 rect = texture_storage->decal_atlas_get_texture_rect(projector);
-
-						light_data.projector_rect[0] = rect.position.x;
-						light_data.projector_rect[1] = rect.position.y + rect.size.height; //flip because shadow is flipped
-						light_data.projector_rect[2] = rect.size.width;
-						light_data.projector_rect[3] = -rect.size.height;
+						// Directional projectors use a separate texture binding instead of the decal atlas.
+						// This allows hardware repeat wrapping for seamless tiling and supports ViewportTexture.
+						// Only the first directional light's projector is bound (single texture slot).
+						if (!directional_projector_texture_rd.is_valid()) {
+							directional_projector_texture_rd = texture_storage->texture_get_rd_texture(projector, true);
+						}
+						light_data.has_projector = 1;
 
 						light_data.projector_offset[0] = light->projector_offset.x / light->projector_size.x;
 						light_data.projector_offset[1] = light->projector_offset.y / light->projector_size.y;
 
-						// Compute projector matrix
+						// Compute projector matrix.
 						Projection projector_projection;
 						projector_projection.set_orthogonal(-light->projector_size.x / 2.0f, +light->projector_size.x / 2.0f,
 															-light->projector_size.y / 2.0f, +light->projector_size.y / 2.0f,
@@ -735,10 +737,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 						r_directional_light_use_projectors = true;
 
 					} else {
-						light_data.projector_rect[0] = 0;
-						light_data.projector_rect[1] = 0;
-						light_data.projector_rect[2] = 0;
-						light_data.projector_rect[3] = 0;
+						light_data.has_projector = 0;
 					}
 
 					int limit = smode == RS::LIGHT_DIRECTIONAL_SHADOW_ORTHOGONAL ? 0 : (smode == RS::LIGHT_DIRECTIONAL_SHADOW_PARALLEL_2_SPLITS ? 1 : 3);

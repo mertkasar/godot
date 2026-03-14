@@ -210,15 +210,21 @@ void Light3D::set_projector(const Ref<Texture2D> &p_texture) {
 	RID tex_id = projector.is_valid() ? projector->get_rid() : RID();
 
 #ifdef DEBUG_ENABLED
-	if (p_texture.is_valid() &&
-			(p_texture->is_class("AnimatedTexture") ||
-					p_texture->is_class("AtlasTexture") ||
-					p_texture->is_class("CameraTexture") ||
-					p_texture->is_class("CanvasTexture") ||
-					p_texture->is_class("MeshTexture") ||
-					p_texture->is_class("Texture2DRD") ||
-					p_texture->is_class("ViewportTexture"))) {
-		WARN_PRINT(vformat("%s cannot be used as a Light3D projector texture (%s). As a workaround, assign the value returned by %s's `get_image()` instead.", p_texture->get_class(), get_path(), p_texture->get_class()));
+	if (p_texture.is_valid()) {
+		bool is_unsupported = p_texture->is_class("AnimatedTexture") ||
+				p_texture->is_class("AtlasTexture") ||
+				p_texture->is_class("CameraTexture") ||
+				p_texture->is_class("CanvasTexture") ||
+				p_texture->is_class("MeshTexture") ||
+				p_texture->is_class("Texture2DRD");
+		// ViewportTexture is supported for directional lights (separate texture binding),
+		// but not for omni/spot lights (decal atlas).
+		if (type != RS::LIGHT_DIRECTIONAL) {
+			is_unsupported = is_unsupported || p_texture->is_class("ViewportTexture");
+		}
+		if (is_unsupported) {
+			WARN_PRINT(vformat("%s cannot be used as a Light3D projector texture (%s). As a workaround, assign the value returned by %s's `get_image()` instead.", p_texture->get_class(), get_path(), p_texture->get_class()));
+		}
 	}
 #endif
 
@@ -606,6 +612,12 @@ void DirectionalLight3D::_validate_property(PropertyInfo &p_property) const {
 		// Not relevant for DirectionalLight3D, as the light LOD system only pertains to point lights.
 		// For DirectionalLight3D, `directional_shadow_max_distance` can be used instead.
 		p_property.usage = PROPERTY_USAGE_NONE;
+	}
+
+	if (p_property.name == "light_projector") {
+		// DirectionalLight3D uses a separate texture binding instead of the decal atlas,
+		// so ViewportTexture is supported.
+		p_property.hint_string = "Texture2D,-AnimatedTexture,-AtlasTexture,-CameraTexture,-CanvasTexture,-MeshTexture,-Texture2DRD";
 	}
 }
 

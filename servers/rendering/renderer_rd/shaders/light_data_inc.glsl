@@ -87,5 +87,6 @@ struct DirectionalLightData {
 	highp mat4 projector_matrix;
 	highp vec4 projector_rect; //projector rect in srgb decal atlas
 	highp vec2 projector_offset;
-	highp vec2 padding;
+	uint has_projector;
+	highp float padding;
 };

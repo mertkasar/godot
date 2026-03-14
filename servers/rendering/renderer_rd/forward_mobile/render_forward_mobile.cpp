@@ -1716,12 +1716,13 @@ void RenderForwardMobile::base_uniforms_changed() {
 void RenderForwardMobile::_update_render_base_uniform_set() {
 	RendererRD::LightStorage *light_storage = RendererRD::LightStorage::get_singleton();
 
-	if (render_base_uniform_set.is_null() || !RD::get_singleton()->uniform_set_is_valid(render_base_uniform_set) || (lightmap_texture_array_version != light_storage->lightmap_array_get_version())) {
+	if (render_base_uniform_set.is_null() || !RD::get_singleton()->uniform_set_is_valid(render_base_uniform_set) || (lightmap_texture_array_version != light_storage->lightmap_array_get_version()) || (directional_projector_texture != light_storage->get_directional_projector_texture())) {
 		if (render_base_uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(render_base_uniform_set)) {
 			RD::get_singleton()->free(render_base_uniform_set);
 		}
 
 		lightmap_texture_array_version = light_storage->lightmap_array_get_version();
+		directional_projector_texture = light_storage->get_directional_projector_texture();
 
 		thread_local LocalVector<RD::Uniform> uniforms;
 		uniforms.clear();
@@ -1815,6 +1816,16 @@ void RenderForwardMobile::_update_render_base_uniform_set() {
 			u.binding = 13;
 			u.uniform_type = RD::UNIFORM_TYPE_SAMPLER;
 			u.append_id(RendererRD::MaterialStorage::get_singleton()->sampler_rd_get_default(RS::CanvasItemTextureFilter::CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS, RS::CanvasItemTextureRepeat::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED));
+			uniforms.push_back(u);
+		}
+
+		{
+			RD::Uniform u;
+			u.binding = 14;
+			u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
+			RID proj_tex = light_storage->get_directional_projector_texture();
+			RID fallback = RendererRD::TextureStorage::get_singleton()->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_WHITE);
+			u.append_id(proj_tex.is_valid() && RD::get_singleton()->texture_is_valid(proj_tex) ? proj_tex : fallback);
 			uniforms.push_back(u);
 		}
 

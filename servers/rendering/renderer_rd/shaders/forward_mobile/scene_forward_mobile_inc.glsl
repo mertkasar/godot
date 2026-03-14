@@ -291,6 +291,8 @@ global_shader_uniforms;
 
 layout(set = 0, binding = 13) uniform sampler DEFAULT_SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP;
 
+layout(set = 0, binding = 14) uniform texture2D directional_projector_texture;
+
 /* Set 1: Render Pass (changes per render pass) */
 
 layout(set = 1, binding = 0, std140) uniform SceneDataBlock {
